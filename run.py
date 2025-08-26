@@ -58,7 +58,7 @@ def list_funders():
     funders = fetch_funders()
     return render_template("kmko_funders.html", funders=funders)
 
-@app.route("/<route_name>/RecordParticipation", methods=["GET", "POST"])
+@app.route("/<route_name>", methods=["GET", "POST"])
 def record_participation(route_name: str):
     funder = fetch_funder_by_route(route_name)
     if not funder:
