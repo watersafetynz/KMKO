@@ -101,7 +101,8 @@ def record_participation(route_name: str):
                 )
 
             # ✅ Redirect to success page
-            return redirect(url_for("submission_success", route_name=route_name))
+            return redirect(url_for("submission_success", route_name=route_name, first=first))
+
 
         except Exception as e:
             flash(f"Error saving record: {e}", "danger")
@@ -113,8 +114,9 @@ def record_participation(route_name: str):
 @app.get("/<route_name>/thanks")
 def submission_success(route_name: str):
     funder = fetch_funder_by_route(route_name)
-    return render_template("kmko_success.html", funder=funder)
-
+    first = (request.args.get("first") or "").strip() or None
+    # if you later capture a PID, pass it too
+    return render_template("kmko_success.html", funder=funder, first=first)
 
 # --------------------------
 # Error handlers
