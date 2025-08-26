@@ -1,0 +1,142 @@
+{% extends "base.html" %} {% block title %}Record Participation • {{
+funder.Description }} | KMKO{% endblock %} {% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <div class="h5 mb-0">Record Participation</div>
+        <small class="text-muted">
+          You are submitting for: <strong>{{ funder.Description }}</strong>
+        </small>
+      </div>
+
+      <div class="card-body">
+        {# flash messages #} {% with messages =
+        get_flashed_messages(with_categories=true) %} {% if messages %} {% for
+        category, msg in messages %}
+        <div class="alert alert-{{ category }} py-2">{{ msg }}</div>
+        {% endfor %} {% endif %} {% endwith %}
+
+        <form method="post" novalidate>
+          <!-- Participant -->
+          <div class="mb-3">
+            <label class="form-label" for="FirstName">First name</label>
+            <input
+              id="FirstName"
+              name="FirstName"
+              class="form-control"
+              value="{{ form.FirstName or '' }}"
+              required
+            />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="LastName">Last name</label>
+            <input
+              id="LastName"
+              name="LastName"
+              class="form-control"
+              value="{{ form.LastName or '' }}"
+              required
+            />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="DateOfBirth">Date of birth</label>
+            <input
+              id="DateOfBirth"
+              type="date"
+              name="DateOfBirth"
+              class="form-control"
+              value="{{ form.DateOfBirth or '' }}"
+              required
+            />
+          </div>
+
+          <!-- Consent / Privacy -->
+          <div class="mb-3">
+            <div class="card bg-light border-0">
+              <div class="card-body">
+                <h6 class="mb-2">Why we collect this information</h6>
+                <p class="mb-2">
+                  This information helps us understand whether people who take
+                  part in our programmes are
+                  <strong>less likely to be injured or drown</strong> over their
+                  life. It lets us check if our programmes deliver measurable,
+                  long-term outcomes.
+                </p>
+
+                <details class="mb-2">
+                  <summary class="fw-semibold">
+                    How your information may be used
+                  </summary>
+                  <ul class="mt-2 mb-2">
+                    <li>
+                      <strong>Programme effectiveness:</strong> Water Safety New
+                      Zealand (WSNZ) and ACC may use your data to monitor
+                      whether participants become less at risk of drowning after
+                      completing programmes.
+                    </li>
+                    <li>
+                      <strong>Long-term outcomes:</strong> Track trends over
+                      time to ensure investments deliver measurable benefits in
+                      reducing drowning risk.
+                    </li>
+                    <li>
+                      <strong>Data minimisation &amp; security:</strong> We
+                      collect only what’s needed and store it securely.
+                    </li>
+                    <li>
+                      <strong>Your rights:</strong> You can request access to or
+                      correction of your information.
+                    </li>
+                  </ul>
+                  <p class="mb-0">
+                    For full details, please see our privacy information
+                    (available from your programme provider or WSNZ).
+                  </p>
+                </details>
+
+                <details>
+                  <summary class="fw-semibold">Te Tiriti o Waitangi</summary>
+                  <p class="mt-2 mb-0">
+                    WSNZ acknowledge Māori as tangata whenua. As trustworthy
+                    data custodians, we work with Māori advisors to develop
+                    appropriate data-sharing protocols and ensure Māori can
+                    access data to support good outcomes.
+                  </p>
+                </details>
+
+                <div class="form-check mt-3">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value="yes"
+                    id="consentBox"
+                    name="Consent"
+                    required
+                  />
+                  <label class="form-check-label" for="consentBox">
+                    I agree to my data being used in the ways outlined above.
+                  </label>
+                </div>
+                <small class="text-muted d-block mt-2">
+                  You can withdraw consent at any time by contacting WSNZ or
+                  your programme provider.
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-primary" type="submit">Save</button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('index') }}"
+              >Back</a
+            >
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

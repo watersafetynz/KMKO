@@ -8,22 +8,85 @@ from db import get_engine
 load_dotenv()
 
 app = Flask(__name__)
+# --- add near the top of run.py ---
+from flask import render_template, request, redirect, url_for, flash
+from sqlalchemy import text
+
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET", "dev-secret")  # for flash()
+
+@app.get("/funders")
+def list_funders():
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            text("EXEC dbo.KMKO_HelperFunctions @Request=:r"),
+            {"r": "ListFunders"}
+        ).mappings().all()
+    return render_template("kmko_funders.html", funders=rows)
+
+
+@app.route("/<route_name>/RecordParticipation", methods=["GET", "POST"])
+def record_participation(route_name: str):
+    with get_engine().connect() as conn:
+        funder = conn.execute(
+            text("EXEC dbo.KMKO_HelperFunctions @Request=:r, @RouteName=:rn"),
+            {"r": "GetFunderByRoute", "rn": route_name}
+        ).mappings().first()
+
+    if not funder:
+        return render_template("kmko_not_found.html", route_name=route_name), 404
+
+    funder_id = funder["FunderID"]
+
+    if request.method == "POST":
+        first = (request.form.get("FirstName") or "").strip()
+        last  = (request.form.get("LastName") or "").strip()
+        dob   = (request.form.get("DateOfBirth") or "").strip()
+        consent = request.form.get("Consent") == "yes"
+
+        errors = []
+        if not first: errors.append("First name is required.")
+        if not last:  errors.append("Last name is required.")
+        if not dob:   errors.append("Date of birth is required.")
+        if not consent: errors.append("You must agree to data use terms.")
+
+        if errors:
+            for e in errors: flash(e, "danger")
+            return render_template("kmko_form.html", funder=funder, form=request.form), 400
+
+        try:
+            with get_engine().begin() as conn:
+                row = conn.execute(
+                    text("""
+                        EXEC dbo.KMKO_HelperFunctions
+                            @Request=:r,
+                            @FunderID=:fid,
+                            @FirstName=:fn,
+                            @LastName=:ln,
+                            @DateOfBirth=:dob,
+                            @ConsentGiven=:cg
+                    """),
+                    {"r": "InsertParticipant", "fid": funder_id, "fn": first,
+                     "ln": last, "dob": dob, "cg": 1 if consent else 0}
+                ).mappings().first()
+                new_id = row["ParticipantID"] if row and "ParticipantID" in row else None
+            flash("Participation recorded ✅", "success")
+            return redirect(url_for("record_participation", route_name=route_name) + f"?saved=1&pid={new_id or ''}")
+        except Exception as e:
+            flash(f"Error saving record: {e}", "danger")
+            return render_template("kmko_form.html", funder=funder, form=request.form), 500
+
+    return render_template("kmko_form.html", funder=funder, form={})
+
 
 # ---- Routes ----
 @app.get("/")
 def index():
-    return "WSFL Flask service is alive ✨", 200
-
-@app.get("/healthz")
-def healthz():
-    """Health endpoint with an optional DB ping."""
-    try:
-        with get_engine().connect() as conn:
-            conn.exec_driver_sql("SELECT 1")
-        return jsonify(status="ok", db="up"), 200
-    except Exception as e:
-        # Keep 200 so platforms don’t insta-restart while you debug DB creds
-        return jsonify(status="ok", db="down", error=str(e)), 200
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            text("EXEC dbo.KMKO_HelperFunctions @Request=:r"),
+            {"r": "ListFunders"}
+        ).mappings().all()
+    return render_template("kmko_funders.html", funders=rows)
 
 
 # ---- Error handlers (optional but handy) ----

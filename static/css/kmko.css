@@ -1,0 +1,70 @@
+/* ================================
+   KMKO Brand Stylesheet
+   ================================ */
+
+/* ----- Color Palette ----- */
+:root {
+  --kmko-primary: #395765;   /* deep teal/navy */
+  --kmko-secondary: #D2DADD; /* soft grey */
+  --kmko-accent: #8A320F;    /* rust / cultural accent */
+  --kmko-white: #FFFFFF;
+}
+
+/* ----- Base Styles ----- */
+body {
+  font-family: system-ui, sans-serif;
+  background-color: var(--kmko-secondary);
+  color: var(--kmko-primary);
+  margin: 0;
+}
+
+/* Links & Buttons */
+a, .btn-link {
+  color: var(--kmko-accent);
+  text-decoration: none;
+}
+a:hover, .btn-link:hover {
+  text-decoration: underline;
+}
+
+.btn-primary {
+  background-color: var(--kmko-primary);
+  border: none;
+  color: var(--kmko-white);
+}
+.btn-primary:hover {
+  background-color: var(--kmko-accent);
+}
+
+/* Header / Navbar */
+.navbar {
+  background-color: var(--kmko-primary);
+}
+.navbar-brand img {
+  height: 40px;
+}
+.navbar .nav-link {
+  color: var(--kmko-white) !important;
+}
+.navbar .nav-link:hover {
+  color: var(--kmko-accent) !important;
+}
+
+/* Cards */
+.card {
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+}
+.card-header {
+  background-color: var(--kmko-secondary);
+  font-weight: 600;
+}
+
+/* Footer */
+footer {
+  background-color: var(--kmko-primary);
+  color: var(--kmko-white);
+  padding: 1rem;
+  text-align: center;
+}

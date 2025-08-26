@@ -1,0 +1,70 @@
+{% extends "base.html" %} {% block title %}KMKO • Funders{% endblock %} {% block
+content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h1 class="h4 mb-0">KMKO Funders</h1>
+      <span class="text-muted small" id="countBadge"></span>
+    </div>
+
+    <!-- Quick filter -->
+    <div class="input-group mb-3">
+      <span class="input-group-text" id="filter-label">Search</span>
+      <input
+        id="funderFilter"
+        type="search"
+        class="form-control"
+        placeholder="Type to filter funders…"
+        aria-labelledby="filter-label"
+      />
+    </div>
+
+    <div class="list-group shadow-sm" id="funderList">
+      {% for f in funders %}
+      <a
+        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+        href="{{ url_for('record_participation', route_name=f.RouteName) }}"
+        data-name="{{ f.Description | lower }}"
+      >
+        <span class="fw-semibold">{{ f.Description }}</span>
+        <span class="badge text-bg-light">{{ f.RouteName }}</span>
+      </a>
+      {% else %}
+      <div class="list-group-item text-muted">No funders found.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Client-side filter (no dependency)
+  (function () {
+    const input = document.getElementById("funderFilter");
+    const list = document.getElementById("funderList");
+    const rows = Array.from(list.querySelectorAll("a.list-group-item"));
+    const badge = document.getElementById("countBadge");
+
+    function updateCount(visible) {
+      badge.textContent =
+        visible === rows.length
+          ? `${rows.length} funder${rows.length !== 1 ? "s" : ""}`
+          : `${visible} of ${rows.length}`;
+    }
+
+    function filter() {
+      const q = (input.value || "").trim().toLowerCase();
+      let visible = 0;
+      rows.forEach((row) => {
+        const name = row.getAttribute("data-name") || "";
+        const show = !q || name.includes(q);
+        row.style.display = show ? "" : "none";
+        if (show) visible++;
+      });
+      updateCount(visible);
+    }
+
+    updateCount(rows.length);
+    input.addEventListener("input", filter);
+  })();
+</script>
+{% endblock %}
