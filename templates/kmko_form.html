@@ -11,13 +11,21 @@ funder.Description }} | KMKO{% endblock %} {% block content %}
       </div>
 
       <div class="card-body">
-        {# flash messages #} {% with messages =
+        {# success message if redirected after save #} {% if
+        request.args.get('saved') %}
+        <div class="alert alert-success shadow-sm">
+          <strong>Submission successful!</strong>
+          {% if request.args.get('pid') %} Reference ID:
+          <code>{{ request.args.get('pid') }}</code>
+          {% endif %}
+        </div>
+        {% endif %} {# flash messages for errors #} {% with messages =
         get_flashed_messages(with_categories=true) %} {% if messages %} {% for
         category, msg in messages %}
         <div class="alert alert-{{ category }} py-2">{{ msg }}</div>
         {% endfor %} {% endif %} {% endwith %}
 
-        <form method="post" novalidate>
+        <form method="post">
           <!-- Participant -->
           <div class="mb-3">
             <label class="form-label" for="FirstName">First name</label>
@@ -115,6 +123,8 @@ funder.Description }} | KMKO{% endblock %} {% block content %}
                     id="consentBox"
                     name="Consent"
                     required
+                    oninvalid="this.setCustomValidity('You must agree before submitting')"
+                    oninput="this.setCustomValidity('')"
                   />
                   <label class="form-check-label" for="consentBox">
                     I agree to my data being used in the ways outlined above.
@@ -129,8 +139,17 @@ funder.Description }} | KMKO{% endblock %} {% block content %}
           </div>
 
           <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-primary" type="submit">Save</button>
-            <a class="btn btn-outline-secondary" href="{{ url_for('index') }}"
+            <button id="saveBtn" class="btn btn-primary" type="submit">
+              <span class="btn-text">Save</span>
+              <span
+                class="spinner-border spinner-border-sm ms-2 d-none"
+                role="status"
+                aria-hidden="true"
+              ></span>
+            </button>
+            <a
+              class="btn btn-outline-secondary"
+              href="{{ url_for('list_funders') }}"
               >Back</a
             >
           </div>
@@ -139,4 +158,20 @@ funder.Description }} | KMKO{% endblock %} {% block content %}
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    const form = document.querySelector("form");
+    const btn = document.getElementById("saveBtn");
+    const text = btn.querySelector(".btn-text");
+    const spin = btn.querySelector(".spinner-border");
+
+    form.addEventListener("submit", function (e) {
+      if (!form.checkValidity()) return; // let HTML5 validation handle
+      btn.disabled = true;
+      spin.classList.remove("d-none");
+      text.textContent = "Saving…";
+    });
+  })();
+</script>
 {% endblock %}
