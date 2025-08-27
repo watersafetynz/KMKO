@@ -95,9 +95,10 @@ def record_participation(route_name: str):
                             @FunderID=:fid,
                             @FirstName=:fn,
                             @LastName=:ln,
-                            @DateOfBirth=:dob
+                            @DateOfBirth=:dob,
+                            @ConsentGiven =:cg
                     """),
-                    {"r": "InsertParticipant", "fid": funder_id, "fn": first, "ln": last, "dob": dob}
+                    {"r": "InsertParticipant", "fid": funder_id, "fn": first, "ln": last, "dob": dob,"cg":consent}
                 )
 
             # ✅ Redirect to success page
