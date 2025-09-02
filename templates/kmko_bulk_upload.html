@@ -1,0 +1,361 @@
+{% extends "base.html" %} {% block title %}Bulk Upload • {{ funder.Description
+}} | KMKO{% endblock %} {% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card shadow-sm">
+      <div
+        class="card-header d-flex justify-content-between align-items-center"
+      >
+        <div>
+          <div class="h5 mb-0">Bulk Upload Participants</div>
+          <small class="text-muted">
+            You are uploading for: <strong>{{ funder.Description }}</strong>
+          </small>
+        </div>
+        <a
+          class="btn btn-outline-secondary btn-sm"
+          href="{{ url_for('record_participation', route_name=funder.RouteName) }}"
+        >
+          Switch to Single Entry
+        </a>
+      </div>
+
+      <div class="card-body">
+        {# flash messages #} {% with messages =
+        get_flashed_messages(with_categories=true) %} {% if messages %} {% for
+        category, msg in messages %}
+        <div
+          class="alert alert-{{ 'danger' if category=='error' else category }} mb-3"
+          role="alert"
+        >
+          {{ msg }}
+        </div>
+        {% endfor %} {% endif %} {% endwith %}
+
+        <p class="mb-2">
+          CSV must contain these fields (any order; headers optional):
+        </p>
+        <ul class="mb-3">
+          <li>
+            <code>FirstName</code> (aliases like <em>First Name</em>,
+            <em>Given Name</em> ok)
+          </li>
+          <li>
+            <code>LastName</code> (aliases like <em>Surname</em>,
+            <em>Family Name</em> ok)
+          </li>
+          <li>
+            <code>DateOfBirth</code> — accepts <strong>DD/MM/YYYY</strong>,
+            <strong>YYYY-MM-DD</strong>, month names (<em>14 Feb 2013</em>), and
+            separators <strong>/ - .</strong>.
+          </li>
+        </ul>
+        <p class="text-muted">Extra columns are ignored.</p>
+
+        <div class="mb-3">
+          <button id="downloadSampleBtn" class="btn btn-link p-0">
+            Download sample CSV
+          </button>
+        </div>
+
+        <form
+          id="bulkUploadForm"
+          method="POST"
+          action=""
+          enctype="multipart/form-data"
+          novalidate
+        >
+          <div
+            id="dropzone"
+            class="border rounded-3 p-4 text-center mb-3"
+            style="border-style: dashed"
+          >
+            <p class="mb-2 fw-semibold">Drag & drop your CSV here</p>
+            <p class="text-muted mb-3">or</p>
+            <label class="btn btn-primary">
+              Choose CSV file
+              <input
+                id="csvInput"
+                type="file"
+                name="csv_file"
+                accept=".csv,text/csv"
+                hidden
+              />
+            </label>
+            <div id="fileName" class="mt-2 text-muted small"></div>
+          </div>
+
+          <!-- Detected mapping / assumption note -->
+          <div id="mappingNote" class="alert alert-info d-none">
+            <div class="fw-semibold mb-1">Detected column mapping</div>
+            <ul class="mb-0 small">
+              <li>
+                Header row detected: <span id="headerDetected">Unknown</span>
+              </li>
+              <li>FirstName → <code id="mapFirstName">—</code></li>
+              <li>LastName → <code id="mapLastName">—</code></li>
+              <li>DateOfBirth → <code id="mapDOB">—</code></li>
+            </ul>
+          </div>
+
+          <div id="previewContainer" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">Preview (first 5 rows)</h6>
+              <small class="text-muted"
+                >Please check the columns and data look correct</small
+              >
+            </div>
+            <div class="table-responsive">
+              <table
+                id="previewTable"
+                class="table table-sm table-bordered mb-3"
+              >
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="confirmBox" class="form-check my-3 d-none">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="confirmMapping"
+            />
+            <label class="form-check-label" for="confirmMapping">
+              I confirm the detected columns and preview look correct.
+            </label>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button
+              type="submit"
+              class="btn btn-success"
+              id="uploadBtn"
+              disabled
+            >
+              Upload
+            </button>
+            <a
+              class="btn btn-outline-secondary"
+              href="{{ url_for('record_participation', route_name=funder.RouteName) }}"
+              >Cancel</a
+            >
+          </div>
+        </form>
+      </div>
+
+      <div class="card-footer small text-muted">
+        Data is stored securely in Azure SQL and transmitted over encrypted
+        connections. Only authorised WSNZ staff can access it.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const dropzone = document.getElementById("dropzone");
+    const input = document.getElementById("csvInput");
+    const fileNameEl = document.getElementById("fileName");
+    const previewBox = document.getElementById("previewContainer");
+    const thead = document.querySelector("#previewTable thead");
+    const tbody = document.querySelector("#previewTable tbody");
+    const downloadSampleBtn = document.getElementById("downloadSampleBtn");
+    const mappingNote = document.getElementById("mappingNote");
+    const headerDetectedEl = document.getElementById("headerDetected");
+    const mapFN = document.getElementById("mapFirstName");
+    const mapLN = document.getElementById("mapLastName");
+    const mapDOB = document.getElementById("mapDOB");
+    const confirmBox = document.getElementById("confirmBox");
+    const confirmMapping = document.getElementById("confirmMapping");
+    const uploadBtn = document.getElementById("uploadBtn");
+
+    const REQUIRED = ["FirstName", "LastName", "DateOfBirth"];
+    const ALIASES = {
+      // normalised -> canonical
+      firstname: "FirstName",
+      first_name: "FirstName",
+      givenname: "FirstName",
+      given_name: "FirstName",
+      lastname: "LastName",
+      last_name: "LastName",
+      surname: "LastName",
+      familyname: "LastName",
+      family_name: "LastName",
+      dob: "DateOfBirth",
+      dateofbirth: "DateOfBirth",
+      date_of_birth: "DateOfBirth",
+      birthdate: "DateOfBirth",
+      birth_date: "DateOfBirth",
+    };
+    function norm(s) {
+      return String(s || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+    }
+
+    function updateUploadEnabled() {
+      uploadBtn.disabled = !confirmMapping.checked;
+    }
+    confirmMapping.addEventListener("change", updateUploadEnabled);
+
+    // sample CSV
+    downloadSampleBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      const sample = `FirstName,LastName,DateOfBirth
+Aroha,Ngata,12/03/2011
+Hemi,Walker,2009-11-05
+`;
+      const blob = new Blob([sample], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "kmko_sample.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // drag & drop
+    ["dragenter", "dragover"].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add("bg-light");
+      })
+    );
+    ["dragleave", "drop"].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove("bg-light");
+      })
+    );
+    dropzone.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) {
+        if (!file.name.toLowerCase().endsWith(".csv")) {
+          alert("Please upload a .csv file");
+          return;
+        }
+        input.files = e.dataTransfer.files;
+        fileNameEl.textContent = file.name;
+        previewCSV(file);
+      }
+    });
+
+    // file picker change
+    input.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        if (!file.name.toLowerCase().endsWith(".csv")) {
+          alert("Please upload a .csv file");
+          input.value = "";
+          return;
+        }
+        fileNameEl.textContent = file.name;
+        previewCSV(file);
+      } else {
+        fileNameEl.textContent = "";
+        previewBox.classList.add("d-none");
+        mappingNote.classList.add("d-none");
+        confirmBox.classList.add("d-none");
+        confirmMapping.checked = false;
+        updateUploadEnabled();
+      }
+    });
+
+    // basic CSV preview + mapping detection (first 5 rows)
+    function previewCSV(file) {
+      const reader = new FileReader();
+      reader.onload = function (evt) {
+        const text = evt.target.result || "";
+        const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
+        if (!lines.length) {
+          previewBox.classList.add("d-none");
+          mappingNote.classList.add("d-none");
+          confirmBox.classList.add("d-none");
+          confirmMapping.checked = false;
+          updateUploadEnabled();
+          return;
+        }
+
+        // naive split (no quoted-comma handling) — OK for simple files
+        const rows = lines.map((line) => line.split(","));
+        let headerRow = rows[0].map((h) => h.trim());
+        let headerDetected = false;
+
+        // detect if first row looks like headers by alias matching
+        const canon = {};
+        headerRow.forEach((h, idx) => {
+          const k = norm(h);
+          if (ALIASES[k]) canon[ALIASES[k]] = idx;
+          if (REQUIRED.includes(h)) canon[h] = idx; // exact canonical names
+        });
+        const hasAllFromHeader = REQUIRED.every((k) =>
+          Number.isInteger(canon[k])
+        );
+        if (hasAllFromHeader) {
+          headerDetected = true;
+        } else {
+          // assume headerless: map first three columns to required order
+          canon["FirstName"] = 0;
+          canon["LastName"] = 1;
+          canon["DateOfBirth"] = 2;
+        }
+
+        // render mapping note
+        headerDetectedEl.textContent = headerDetected
+          ? "Yes"
+          : "No (assuming first three columns map to required fields)";
+        mapFN.textContent = headerDetected
+          ? headerRow[canon["FirstName"]]
+          : "Column 1";
+        mapLN.textContent = headerDetected
+          ? headerRow[canon["LastName"]]
+          : "Column 2";
+        mapDOB.textContent = headerDetected
+          ? headerRow[canon["DateOfBirth"]]
+          : "Column 3";
+        mappingNote.classList.remove("d-none");
+
+        // render preview table (limit to first 5 data rows)
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+
+        const trHead = document.createElement("tr");
+        const headLabels = headerDetected
+          ? headerRow
+          : ["Column 1", "Column 2", "Column 3"];
+        headLabels.forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+
+        const startIdx = headerDetected ? 1 : 0;
+        const maxRows = Math.min(rows.length - startIdx, 5);
+        for (let i = 0; i < maxRows; i++) {
+          const tr = document.createElement("tr");
+          const row = rows[startIdx + i];
+          headLabels.forEach((_, idx) => {
+            const td = document.createElement("td");
+            td.textContent = (row[idx] || "").trim();
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        }
+
+        previewBox.classList.remove("d-none");
+        confirmBox.classList.remove("d-none");
+        confirmMapping.checked = false;
+        updateUploadEnabled();
+      };
+      reader.readAsText(file);
+    }
+  })();
+</script>
+{% endblock %}
