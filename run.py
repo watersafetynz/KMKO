@@ -269,6 +269,12 @@ def record_participation(route_name: str):
 
     # -------- POST --------
     if is_bulk:
+        # ✅ Enforce consent in bulk mode (checkbox must be inside the form)
+        bulk_consent = (request.form.get("Consent") == "yes")
+        if not bulk_consent:
+            flash("You must agree to the data use terms before uploading.", "danger")
+            return render_template("kmko_bulk_upload.html", funder=funder), 400
+
         # CSV upload branch
         file = request.files.get("csv_file")
         if not file or file.filename == "":
@@ -331,7 +337,7 @@ def record_participation(route_name: str):
                     "FirstName": rec["FirstName"],
                     "LastName":  rec["LastName"],
                     "DateISO":   rec["DateISO"],
-                    "Consent":   True,  # implied consent in bulk mode
+                    "Consent":   bulk_consent,  # carry through per-record (optional)
                 }
                 for rec in to_insert
             ])
@@ -349,7 +355,7 @@ def record_participation(route_name: str):
                         "r": "BulkInsertParticipantsJson",
                         "fid": funder_id,
                         "payload": payload,
-                        "cg": True,
+                        "cg": bulk_consent,   # ✅ pass consent flag to SP
                     },
                 )
 

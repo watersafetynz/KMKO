@@ -12,12 +12,6 @@
             You are uploading for: <strong>{{ funder.Description }}</strong>
           </small>
         </div>
-        <a
-          class="btn btn-outline-secondary btn-sm"
-          href="{{ url_for('record_participation', route_name=funder.RouteName) }}"
-        >
-          Switch to Single Entry
-        </a>
       </div>
 
       <div class="card-body">
@@ -32,6 +26,7 @@
         </div>
         {% endfor %} {% endif %} {% endwith %}
 
+        <!-- CSV instructions -->
         <p class="mb-2">
           CSV must contain these fields (any order; headers optional):
         </p>
@@ -65,10 +60,97 @@
           enctype="multipart/form-data"
           novalidate
         >
+          {# include if using Flask-WTF CSRF #} {# {{ form.csrf_token }} #}
+
+          <!-- Privacy & Consent INSIDE the form so it posts -->
+          <section id="privacy-consent" class="mb-3">
+            <div class="card bg-light border-0">
+              <div class="card-body">
+                <h6 class="mb-2">Why we collect this information</h6>
+                <p class="mb-2">
+                  This information helps us understand whether people who take
+                  part in our programmes are
+                  <strong>less likely to be injured or drown</strong> over their
+                  life. It lets us check if our programmes deliver measurable,
+                  long-term outcomes.
+                </p>
+
+                <details class="mb-2">
+                  <summary class="fw-semibold">
+                    How your information may be used
+                  </summary>
+                  <ul class="mt-2 mb-2">
+                    <li>
+                      <strong>Programme effectiveness:</strong> Water Safety New
+                      Zealand (WSNZ) and ACC may use your data to monitor
+                      whether participants become less at risk of drowning after
+                      completing programmes.
+                    </li>
+                    <li>
+                      <strong>Long-term outcomes:</strong> Track trends over
+                      time to ensure investments deliver measurable benefits in
+                      reducing drowning risk.
+                    </li>
+                    <li>
+                      <strong>Data minimisation &amp; security:</strong> We
+                      collect only what’s needed and store it securely.
+                    </li>
+                    <li>
+                      <strong>Your rights:</strong> You can request access to or
+                      correction of your information.
+                    </li>
+                  </ul>
+                  <p class="mb-0">
+                    For full details, please see our privacy information
+                    (available from your programme provider or WSNZ).
+                  </p>
+                </details>
+
+                <details>
+                  <summary class="fw-semibold">Te Tiriti o Waitangi</summary>
+                  <p class="mt-2 mb-0">
+                    WSNZ acknowledge Māori as tangata whenua. As trustworthy
+                    data custodians, we work with Māori advisors to develop
+                    appropriate data-sharing protocols and ensure Māori can
+                    access data to support good outcomes.
+                  </p>
+                </details>
+
+                <p class="mt-3 mb-2">
+                  <strong>Important:</strong> Your personal information will not
+                  be shared with any government agency
+                  <u>unless required by law</u>.
+                </p>
+
+                <div class="form-check mt-3">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value="yes"
+                    id="consentBox"
+                    name="Consent"
+                    required
+                    oninvalid="this.setCustomValidity('You must agree before submitting')"
+                    oninput="this.setCustomValidity('')"
+                  />
+                  <label class="form-check-label" for="consentBox">
+                    I agree to my data being used in the ways outlined above.
+                  </label>
+                </div>
+                <small class="text-muted d-block mt-2">
+                  You can withdraw consent at any time by contacting WSNZ or
+                  your programme provider.
+                </small>
+              </div>
+            </div>
+          </section>
+
+          <!-- Dropzone -->
           <div
             id="dropzone"
             class="border rounded-3 p-4 text-center mb-3"
             style="border-style: dashed"
+            aria-label="CSV file dropzone"
           >
             <p class="mb-2 fw-semibold">Drag & drop your CSV here</p>
             <p class="text-muted mb-3">or</p>
@@ -78,15 +160,23 @@
                 id="csvInput"
                 type="file"
                 name="csv_file"
-                accept=".csv,text/csv"
+                accept=".csv,text/csv,application/vnd.ms-excel"
                 hidden
               />
             </label>
-            <div id="fileName" class="mt-2 text-muted small"></div>
+            <div
+              id="fileName"
+              class="mt-2 text-muted small"
+              aria-live="polite"
+            ></div>
           </div>
 
           <!-- Detected mapping / assumption note -->
-          <div id="mappingNote" class="alert alert-info d-none">
+          <div
+            id="mappingNote"
+            class="alert alert-info d-none"
+            aria-live="polite"
+          >
             <div class="fw-semibold mb-1">Detected column mapping</div>
             <ul class="mb-0 small">
               <li>
@@ -127,20 +217,26 @@
             </label>
           </div>
 
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 mt-3">
             <button
-              type="submit"
-              class="btn btn-success"
               id="uploadBtn"
+              class="btn btn-primary"
+              type="submit"
               disabled
             >
-              Upload
+              <span class="btn-text">Upload</span>
+              <span
+                class="spinner-border spinner-border-sm ms-2 d-none"
+                role="status"
+                aria-hidden="true"
+              ></span>
             </button>
             <a
               class="btn btn-outline-secondary"
               href="{{ url_for('record_participation', route_name=funder.RouteName) }}"
-              >Cancel</a
             >
+              Cancel
+            </a>
           </div>
         </form>
       </div>
@@ -170,10 +266,10 @@
     const confirmBox = document.getElementById("confirmBox");
     const confirmMapping = document.getElementById("confirmMapping");
     const uploadBtn = document.getElementById("uploadBtn");
+    const uploadSpinner = uploadBtn.querySelector(".spinner-border");
 
     const REQUIRED = ["FirstName", "LastName", "DateOfBirth"];
     const ALIASES = {
-      // normalised -> canonical
       firstname: "FirstName",
       first_name: "FirstName",
       givenname: "FirstName",
@@ -189,18 +285,37 @@
       birthdate: "DateOfBirth",
       birth_date: "DateOfBirth",
     };
+
     function norm(s) {
       return String(s || "")
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "");
     }
 
+    function stripBOM(s) {
+      return String(s || "").replace(/^\uFEFF/, "");
+    }
+
     function updateUploadEnabled() {
-      uploadBtn.disabled = !confirmMapping.checked;
+      uploadBtn.disabled = !confirmMapping.checked || !input.files?.length;
     }
     confirmMapping.addEventListener("change", updateUploadEnabled);
 
-    // sample CSV
+    // Submit: disable + show spinner (prevents double-post)
+    document
+      .getElementById("bulkUploadForm")
+      .addEventListener("submit", (e) => {
+        const consent = document.getElementById("consentBox");
+        if (consent && !consent.checked) {
+          e.preventDefault();
+          consent.reportValidity();
+          return;
+        }
+        uploadBtn.disabled = true;
+        uploadSpinner.classList.remove("d-none");
+      });
+
+    // Sample CSV download
     downloadSampleBtn.addEventListener("click", function (e) {
       e.preventDefault();
       const sample = `FirstName,LastName,DateOfBirth
@@ -218,7 +333,7 @@ Hemi,Walker,2009-11-05
       URL.revokeObjectURL(url);
     });
 
-    // drag & drop
+    // Drag & drop styling
     ["dragenter", "dragover"].forEach((evt) =>
       dropzone.addEventListener(evt, (e) => {
         e.preventDefault();
@@ -233,6 +348,8 @@ Hemi,Walker,2009-11-05
         dropzone.classList.remove("bg-light");
       })
     );
+
+    // Handle file drop
     dropzone.addEventListener("drop", (e) => {
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file) {
@@ -243,20 +360,27 @@ Hemi,Walker,2009-11-05
         input.files = e.dataTransfer.files;
         fileNameEl.textContent = file.name;
         previewCSV(file);
+        updateUploadEnabled();
       }
     });
 
-    // file picker change
+    // NOTE: Option A — no click/keydown handler on dropzone to open file picker.
+    // The <label> for the hidden input will open the picker natively (single prompt).
+
+    // File picker
     input.addEventListener("change", (e) => {
       const file = e.target.files && e.target.files[0];
       if (file) {
         if (!file.name.toLowerCase().endsWith(".csv")) {
           alert("Please upload a .csv file");
           input.value = "";
+          fileNameEl.textContent = "";
+          updateUploadEnabled();
           return;
         }
         fileNameEl.textContent = file.name;
         previewCSV(file);
+        updateUploadEnabled();
       } else {
         fileNameEl.textContent = "";
         previewBox.classList.add("d-none");
@@ -271,7 +395,7 @@ Hemi,Walker,2009-11-05
     function previewCSV(file) {
       const reader = new FileReader();
       reader.onload = function (evt) {
-        const text = evt.target.result || "";
+        const text = stripBOM(evt.target.result || "");
         const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
         if (!lines.length) {
           previewBox.classList.add("d-none");
@@ -306,7 +430,7 @@ Hemi,Walker,2009-11-05
           canon["DateOfBirth"] = 2;
         }
 
-        // render mapping note
+        // mapping note
         headerDetectedEl.textContent = headerDetected
           ? "Yes"
           : "No (assuming first three columns map to required fields)";
@@ -321,10 +445,9 @@ Hemi,Walker,2009-11-05
           : "Column 3";
         mappingNote.classList.remove("d-none");
 
-        // render preview table (limit to first 5 data rows)
+        // preview table (limit 5 rows)
         thead.innerHTML = "";
         tbody.innerHTML = "";
-
         const trHead = document.createElement("tr");
         const headLabels = headerDetected
           ? headerRow
